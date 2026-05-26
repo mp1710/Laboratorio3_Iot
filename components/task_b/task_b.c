@@ -15,42 +15,37 @@
 #define UART_PORT UART_NUM_0
 #define BUF_SIZE 128
 
-static const char *TAG = "TASK_B"; //Etiqueta para logs
-// Función auxiliar para convertir un string de color a una estructura rgb_color_t
-static int parse_color(const char *color, rgb_color_t *rgb)
-{ 
-    if (strcmp(color, "ROJO") == 0) {
-        rgb->r = 255;
-        rgb->g = 0;
-        rgb->b = 0;
-        return 1;
-    } else if (strcmp(color, "VERDE") == 0) {
-        rgb->r = 0;
-        rgb->g = 255;
-        rgb->b = 0;
-        return 1;
-    } else if (strcmp(color, "AZUL") == 0) {
-        rgb->r = 0;
-        rgb->g = 0;
-        rgb->b = 255;
-        return 1;
-    } else if (strcmp(color, "BLANCO") == 0) {
-        rgb->r = 255;
-        rgb->g = 255;
-        rgb->b = 255;
-        return 1;
-    } else {
-        return -1; // Color no reconocido
-    }
-}
+static const char *TAG = "TASK_B";
 
+static int parse_color(const char *color, rgb_color_t *rgb)
+{
+    if (strcmp(color, "ROJO") == 0) {
+        rgb->r = 255; rgb->g = 0; rgb->b = 0;
+        return 1;
+    }
+
+    if (strcmp(color, "VERDE") == 0) {
+        rgb->r = 0; rgb->g = 255; rgb->b = 0;
+        return 1;
+    }
+
+    if (strcmp(color, "AZUL") == 0) {
+        rgb->r = 0; rgb->g = 0; rgb->b = 255;
+        return 1;
+    }
+
+    if (strcmp(color, "BLANCO") == 0) {
+        rgb->r = 255; rgb->g = 255; rgb->b = 255;
+        return 1;
+    }
+
+    return 0;
+}
 
 void task_b(void *pvParameters)
 {
-    // Obtener la cola de comandos desde los parámetros
-    QueueHandle_t queue = (QueueHandle_t)pvParameters;
+    QueueHandle_t queue = (QueueHandle_t) pvParameters;
 
-    // Configurar UART
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -59,49 +54,65 @@ void task_b(void *pvParameters)
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
 
-    // Inicializar UART
     ESP_ERROR_CHECK(uart_driver_install(UART_PORT, BUF_SIZE * 2, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_param_config(UART_PORT, &uart_config));
+    ESP_ERROR_CHECK(uart_set_pin(UART_PORT, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE,
+                                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    ESP_LOGI(TAG, "Task B iniciada, esperando comandos por UART...");
+    ESP_LOGI(TAG, "Task B iniciada. Escribir comandos tipo: ROJO 5");
 
-    uint8_t data[BUF_SIZE];
+    char line[BUF_SIZE];
+    int idx = 0;
 
     while (1) {
-        // Leer datos de UART
-        int len = uart_read_bytes(UART_PORT, data, BUF_SIZE - 1, portMAX_DELAY);
+        uint8_t c;
+
+        int len = uart_read_bytes(UART_PORT, &c, 1, pdMS_TO_TICKS(20));
 
         if (len > 0) {
-            data[len] = '\0'; // Asegurar que el string esté terminado en null
-            
-            ESP_LOGI(TAG, "Comando recibido: %s", (char *)data);
+            uart_write_bytes(UART_PORT, (const char *)&c, 1);
 
-            // Parsear el comando
-            char color_str[20];
-            unsigned int delay_s; 
-            // Se espera el formato: <COLOR> <DELAY_S>
-            if (sscanf((char *)data, "%19s %u", color_str, &delay_s) == 2) {
-                // Crear comando para enviar a la cola
-                led_command_t cmd;
-                cmd.delay_s = delay_s;
-                // Convertir el string de color a rgb_color_t
-                if (!parse_color(color_str, &cmd.color)) {
-                    ESP_LOGW(TAG, "Color no reconocido: %s", color_str);
-                    uart_write_bytes(UART_PORT, "Color no reconocido. Use ROJO, VERDE, AZUL o BLANCO.\n", 57);
+            if (c == '\n' || c == '\r') {
+                line[idx] = '\0';
+                idx = 0;
+
+                if (strlen(line) == 0) {
                     continue;
                 }
-                // Enviar comando a la cola
-                if (xQueueSend(queue, &cmd, portMAX_DELAY) == pdPASS) {
-                    char response[64];
-                    snprintf(response, sizeof(response), "OK: %s en %us\n", color_str, delay_s);
-                    uart_write_bytes(UART_PORT, response, strlen(response));
-                    ESP_LOGI(TAG, "Comando enviado a la cola: Color=%s, Delay=%u", color_str, delay_s);
+
+                ESP_LOGI(TAG, "Comando recibido: %s", line);
+
+                char color_str[20];
+                unsigned int delay_s;
+
+                if (sscanf(line, "%19s %u", color_str, &delay_s) == 2) {
+                    led_command_t cmd;
+                    cmd.delay_s = delay_s;
+
+                    if (!parse_color(color_str, &cmd.color)) {
+                        ESP_LOGW(TAG, "Color no reconocido: %s", color_str);
+                        uart_write_bytes(UART_PORT, "\nERROR: color invalido\n", 23);
+                        continue;
+                    }
+
+                    if (xQueueSend(queue, &cmd, portMAX_DELAY) == pdPASS) {
+                        char response[64];
+                        snprintf(response, sizeof(response), "\nOK: %s en %us\n", color_str, delay_s);
+                        uart_write_bytes(UART_PORT, response, strlen(response));
+                        ESP_LOGI(TAG, "Comando enviado a la cola: %s en %us", color_str, delay_s);
+                    }
+                } else {
+                    ESP_LOGW(TAG, "Formato incorrecto: %s", line);
+                    uart_write_bytes(UART_PORT, "\nERROR: usar COLOR SEGUNDOS. Ej: ROJO 5\n", 42);
                 }
-                }   
             } else {
-                // El comando no tiene el formato correcto, se avisa al usuario
-                ESP_LOGE(TAG, "Formato de comando incorrecto.");
-                uart_write_bytes(UART_PORT, "Formato incorrecto. Use: <COLOR> <DELAY_S>\n", 38);
+                if (idx < BUF_SIZE - 1) {
+                    line[idx++] = (char)c;
+                } else {
+                    idx = 0;
+                    uart_write_bytes(UART_PORT, "\nERROR: comando demasiado largo\n", 31);
+                }
             }
         }
-}    
+    }
+}
