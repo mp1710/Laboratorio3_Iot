@@ -25,6 +25,9 @@ static SemaphoreHandle_t g_color_mutex = NULL;
 
 void app_main(void)
 {
+    // Establecer el nivel de log para ws2812 (viene de led_strip) a WARN para reducir la verbosidad
+    esp_log_level_set("ws2812", ESP_LOG_WARN);
+    
     ESP_LOGI(TAG, "Iniciando app");
 
     esp_err_t err = rgb_led_init();
