@@ -9,7 +9,9 @@
 #include "rgb_led.h"
 #include "task_a.h"
 #include "task_b.h"
+#include "task_c.h"
 #include "shared_types.h"
+
 
 static const char *TAG = "MAIN"; //Etiqueta para logs
 static QueueHandle_t g_command_queue = NULL; // Cola para comandos recibidos por UART
@@ -24,9 +26,6 @@ static SemaphoreHandle_t g_color_mutex = NULL;
 
 void app_main(void)
 {
-    // Establecer el nivel de log para ws2812 (viene de led_strip) a WARN para reducir la verbosidad
-    esp_log_level_set("ws2812", ESP_LOG_WARN);
-    
     ESP_LOGI(TAG, "Iniciando app");
 
     esp_err_t err = rgb_led_init();
@@ -87,5 +86,28 @@ void app_main(void)
         return;
     }
     ESP_LOGI(TAG, "TASK B creada correctamente");
+
+    // Crear TASK C
+    static task_c_params_t task_c_params;
+
+    task_c_params.command_queue = g_command_queue;
+    task_c_params.current_color = &g_current_color;
+    task_c_params.color_mutex = g_color_mutex;
+
+    result = xTaskCreate(
+        task_c,
+        "task_c",
+        4096,
+        &task_c_params,
+        tskIDLE_PRIORITY + 2,
+        NULL
+    );
+
+    if (result != pdPASS) {
+        ESP_LOGE(TAG, "Error creando TASK C");
+        return;
+    }
+    ESP_LOGI(TAG, "TASK C creada correctamente");
+
 }
 
