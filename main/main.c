@@ -11,7 +11,6 @@
 #include "task_b.h"
 #include "shared_types.h"
 
-
 static const char *TAG = "MAIN"; //Etiqueta para logs
 static QueueHandle_t g_command_queue = NULL; // Cola para comandos recibidos por UART
 // Color actual del LED, protegido por un mutex
@@ -89,3 +88,4 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "TASK B creada correctamente");
 }
+
