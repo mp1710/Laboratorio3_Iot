@@ -151,6 +151,9 @@ void task_c(void *pvParameters)
                 vPortFree(color_copy); // Liberar la memoria del color
             }
             ESP_LOGI(TAG, "Timer creado para cambiar en %u segundos", cmd.delay_s);
+
+            // Monitoreo el STACK de la tarea cada vez que recibo un comando para definir el tamaño del stack
+            ESP_LOGI(TAG, "Stack libre: %u bytes", uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
         }
     }
 }
