@@ -97,6 +97,10 @@ void task_b(void *pvParameters)
 
                     if (xQueueSend(queue, &cmd, portMAX_DELAY) == pdPASS) {
                         char response[64];
+                        
+                        // Monitoreo el STACK de la tarea antes de enviar la respuesta
+                        ESP_LOGI(TAG, "Stack libre: %u bytes", uxTaskGetStackHighWaterMark(NULL) * sizeof(StackType_t));
+                        
                         snprintf(response, sizeof(response), "\nOK: %s en %us\n", color_str, delay_s);
                         uart_write_bytes(UART_PORT, response, strlen(response));
                         ESP_LOGI(TAG, "Comando enviado a la cola: %s en %us", color_str, delay_s);
