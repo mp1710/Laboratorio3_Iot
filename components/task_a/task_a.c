@@ -34,9 +34,9 @@ void task_a(void *pvParameters)
         }
 
         rgb_led_set_color(color_local.r, color_local.g, color_local.b);
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(500));
 
         rgb_led_off();
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
