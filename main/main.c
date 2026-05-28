@@ -12,6 +12,10 @@
 #include "task_c.h"
 #include "shared_types.h"
 
+// Definición de tamaños de stack para cada tarea
+#define usStackDepth_A 2048
+#define usStackDepth_B 3072
+#define usStackDepth_C 3072 
 
 static const char *TAG = "MAIN"; //Etiqueta para logs
 static QueueHandle_t g_command_queue = NULL; // Cola para comandos recibidos por UART
@@ -58,7 +62,7 @@ void app_main(void)
     BaseType_t result = xTaskCreate(
         task_a,
         "task_a",
-        4096,
+        usStackDepth_A,
         &task_a_params,
         tskIDLE_PRIORITY + 1,
         NULL
@@ -75,7 +79,7 @@ void app_main(void)
     result = xTaskCreate(
         task_b,
         "task_b",
-        4096,
+        usStackDepth_B,
         g_command_queue,
         tskIDLE_PRIORITY + 3,
         NULL
@@ -97,7 +101,7 @@ void app_main(void)
     result = xTaskCreate(
         task_c,
         "task_c",
-        4096,
+        usStackDepth_C,
         &task_c_params,
         tskIDLE_PRIORITY + 2,
         NULL
